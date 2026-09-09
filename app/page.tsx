@@ -23,6 +23,12 @@ type ModelContext = {
 
 const HOME_ADVANTAGE = 0.5;
 const FDR_COLORS = ['#006b3c', '#00ff87', '#e7e7e7', '#ff1751', '#80072d'];
+const SORT_LABELS: Record<SortMode, string> = {
+  az: 'Team A–Z',
+  za: 'Team Z–A',
+  easy: 'Easiest first',
+  hard: 'Hardest first',
+};
 
 function mixHex(a: string, b: string, t: number) {
   const read = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
@@ -175,7 +181,7 @@ export default function Home() {
     const rowHeight = 46;
     const headerHeight = 128;
     const logicalWidth = ratingsWidth + teamWidth + visibleGws.length * gwWidth + 24;
-    const logicalHeight = headerHeight + rows.length * rowHeight + 54;
+    const logicalHeight = headerHeight + rows.length * rowHeight + 16;
     const canvas = document.createElement('canvas');
     canvas.width = logicalWidth * scale;
     canvas.height = logicalHeight * scale;
@@ -187,7 +193,7 @@ export default function Home() {
     ctx.fillStyle = '#00ff87'; ctx.font = '700 12px Arial'; ctx.fillText('FANTASY PREMIER LEAGUE', 24, 24);
     ctx.fillStyle = '#ffffff'; ctx.font = '900 27px Arial'; ctx.fillText('Custom FDR', 24, 55);
     ctx.textAlign = 'right'; ctx.font = '600 13px Arial';
-    ctx.fillText(`GW${visibleGws[0]?.id ?? startGw}–GW${visibleGws.at(-1)?.id ?? startGw}  ·  g = 0.5`, logicalWidth - 24, 44);
+    ctx.fillText(`GW${visibleGws[0]?.id ?? startGw}–GW${visibleGws.at(-1)?.id ?? startGw}`, logicalWidth - 24, 44);
     ctx.textAlign = 'left'; ctx.fillStyle = '#31283a'; ctx.font = '800 14px Arial';
     ctx.fillText('TEAM RATINGS', 24, 106); ctx.fillText('TEAM', ratingsWidth + 14, 106);
     visibleGws.forEach((event, index) => {
@@ -217,8 +223,6 @@ export default function Home() {
         });
       });
     });
-    ctx.textAlign = 'left'; ctx.fillStyle = '#6a6270'; ctx.font = '600 12px Arial';
-    ctx.fillText('Ease Score = Σ (6 − FDR), used for sorting only', 24, logicalHeight - 22);
     const link = document.createElement('a');
     const lastGw = visibleGws.at(-1)?.id ?? startGw;
     link.download = `custom-fdr-gw${String(startGw).padStart(2, '0')}-gw${String(lastGw).padStart(2, '0')}.png`;
@@ -228,15 +232,14 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-white/10 bg-[#10051f] px-4 py-4 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-[1800px] items-center gap-4">
           <div><p className="mb-1 text-xs font-bold uppercase tracking-[0.24em] text-[#00ff87]">Fantasy Premier League</p><h1 className="text-2xl font-black tracking-tight sm:text-3xl">Custom FDR</h1></div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm sm:flex"><span className="size-2 rounded-full bg-[#00ff87]" />Home advantage g = 0.5</div>
         </div>
       </header>
       <div className="mx-auto grid max-w-[1800px] gap-5 p-4 sm:p-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:p-8">
         <aside className="rounded-2xl border bg-card shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <div className="sticky top-0 z-10 border-b bg-card/95 p-5 backdrop-blur">
-            <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold">Team ratings</h2><p className="mt-1 text-sm text-muted-foreground">Rate every team from 1.0 to 5.0</p></div><Button variant="ghost" size="icon" onClick={reset} aria-label="Reset all ratings to 3.0"><RefreshCcw /></Button></div>
+            <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold">Team ratings</h2><p className="mt-1 text-sm text-muted-foreground">Rate every team from 1.0 to 5.0. Higher rating indicates stronger team.</p></div><Button variant="ghost" size="icon" onClick={reset} aria-label="Reset all ratings to 3.0"><RefreshCcw /></Button></div>
           </div>
           <div className="space-y-4 p-5">
             {teams.map((team) => <div key={team.id} className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-3">
@@ -252,9 +255,9 @@ export default function Home() {
         </aside>
         <section className="min-w-0">
           <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-4 shadow-sm">
-            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Start</span><Select value={String(startGw)} onValueChange={(value) => setStartGw(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue /></SelectTrigger><SelectContent>{events.map((event) => <SelectItem key={event.id} value={String(event.id)}>GW {event.id}</SelectItem>)}</SelectContent></Select></label>
+            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Start</span><Select value={String(startGw)} onValueChange={(value) => setStartGw(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue>{`GW ${startGw}`}</SelectValue></SelectTrigger><SelectContent>{events.map((event) => <SelectItem key={event.id} value={String(event.id)}>GW {event.id}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Gameweeks</span><Select value={String(gwCount)} onValueChange={(value) => setGwCount(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <SelectItem key={count} value={String(count)}>{count}</SelectItem>)}</SelectContent></Select></label>
-            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Order</span><Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}><SelectTrigger className="h-10 min-w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="az">Team A–Z</SelectItem><SelectItem value="za">Team Z–A</SelectItem><SelectItem value="easy">Easiest first</SelectItem><SelectItem value="hard">Hardest first</SelectItem></SelectContent></Select></label>
+            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Order</span><Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}><SelectTrigger className="h-10 min-w-48"><SelectValue>{SORT_LABELS[sortMode]}</SelectValue></SelectTrigger><SelectContent><SelectItem value="az">Team A–Z</SelectItem><SelectItem value="za">Team Z–A</SelectItem><SelectItem value="easy">Easiest first</SelectItem><SelectItem value="hard">Hardest first</SelectItem></SelectContent></Select></label>
             <Button variant="outline" className="ml-auto h-10" onClick={saveImage} disabled={status !== 'ready'}><Download data-icon="inline-start" />Save image</Button>
           </div>
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
@@ -264,7 +267,7 @@ export default function Home() {
               {rows.map(({ team, byGw }) => <tr key={team.id}><th className="sticky left-0 z-10 border-b border-r bg-card px-4 py-2.5 text-left font-bold"><span className="mr-2 inline-grid size-8 place-items-center rounded-full bg-[#37003c] text-xs font-black text-white">{team.short_name}</span>{team.name}</th>{byGw.map(({ event, games }) => <td key={event.id} className="h-[52px] min-w-40 border-b border-r p-0 text-center font-bold">{games.length === 0 ? <div className="grid h-full min-h-[52px] place-items-center bg-[#e7e7e7] text-lg text-[#4a4650]" title="Blank Gameweek">-</div> : <div className="flex h-full min-h-[52px] flex-col">{games.map((game) => { const background = fdrColor(game.fdr); return <div key={game.fixture.id} className="grid min-h-[26px] flex-1 place-items-center border-b border-white/80 px-2 last:border-b-0" style={{ backgroundColor: background, color: readableText(background) }}>{game.opponent?.short_name} ({game.isHome ? 'H' : 'A'}) {game.fdr.toFixed(1)}</div>; })}</div>}</td>)}</tr>)}
             </tbody></table></div>}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground"><span className="mr-1">Easy</span>{FDR_COLORS.map((color, index) => <span key={color} className="grid size-8 place-items-center rounded-md" style={{ backgroundColor: color, color: readableText(color) }}>{index + 1}</span>)}<span className="ml-1">Hard</span><span className="ml-auto">Ease Score = Σ (6 − FDR) · used for sorting only</span></div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground"><span className="mr-1">Easy</span>{FDR_COLORS.map((color, index) => <span key={color} className="grid size-8 place-items-center rounded-md" style={{ backgroundColor: color, color: readableText(color) }}>{index + 1}</span>)}<span className="ml-1">Hard</span></div>
         </section>
       </div>
     </main>
