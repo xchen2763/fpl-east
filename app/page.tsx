@@ -156,7 +156,9 @@ export default function Home() {
   }, [teams, visibleGws, fixtures, teamById, scores, sortMode]);
 
   function updateScore(teamId: number, value: number) {
-    setDraftScores((current) => ({ ...current, [teamId]: value }));
+    if (!Number.isFinite(value)) return;
+    const normalizedValue = Math.round(Math.min(5, Math.max(1, value)) * 10) / 10;
+    setDraftScores((current) => ({ ...current, [teamId]: normalizedValue }));
     setDirty(true);
   }
   function generate() { setScores({ ...draftScores }); setDirty(false); }
@@ -239,7 +241,7 @@ export default function Home() {
           <div className="space-y-4 p-5">
             {teams.map((team) => <div key={team.id} className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-3">
               <label htmlFor={`rating-${team.id}`} className="truncate text-sm font-semibold" title={team.name}>{team.name}</label>
-              <Slider id={`rating-${team.id}`} min={1} max={5} step={0.1} value={[draftScores[team.id] ?? 3]} onValueChange={(value) => updateScore(team.id, Number(value[0]))} aria-label={`${team.name} rating`} />
+              <Slider id={`rating-${team.id}`} min={1} max={5} step={0.1} value={[draftScores[team.id] ?? 3]} onValueChange={(value) => updateScore(team.id, Number(Array.isArray(value) ? value[0] : value))} aria-label={`${team.name} rating`} />
               <output className="rounded-md bg-secondary px-1.5 py-1 text-center font-mono text-sm font-bold">{(draftScores[team.id] ?? 3).toFixed(1)}</output>
             </div>)}
           </div>
