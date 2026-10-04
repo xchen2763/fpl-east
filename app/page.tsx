@@ -174,6 +174,14 @@ export default function Home() {
   }
 
   function saveImage() {
+    const ratingTeams = [...teams].sort((a, b) => {
+      if (sortMode === 'az') return a.name.localeCompare(b.name);
+      if (sortMode === 'za') return b.name.localeCompare(a.name);
+      const aScore = scores[a.id] ?? 3;
+      const bScore = scores[b.id] ?? 3;
+      const difference = sortMode === 'easy' ? bScore - aScore : aScore - bScore;
+      return difference || a.name.localeCompare(b.name);
+    });
     const scale = 2;
     const ratingsWidth = 340;
     const teamWidth = 170;
@@ -200,12 +208,13 @@ export default function Home() {
       ctx.textAlign = 'center'; ctx.fillText(`GW${event.id}`, ratingsWidth + teamWidth + index * gwWidth + gwWidth / 2, 106);
     });
     rows.forEach(({ team, byGw }, rowIndex) => {
+      const ratingTeam = ratingTeams[rowIndex];
       const y = headerHeight + rowIndex * rowHeight;
       ctx.textAlign = 'left'; ctx.fillStyle = rowIndex % 2 ? '#f0edf2' : '#ffffff';
       ctx.fillRect(12, y, ratingsWidth - 24, rowHeight - 2);
       ctx.fillRect(ratingsWidth, y, teamWidth, rowHeight - 2);
-      ctx.fillStyle = '#211529'; ctx.font = '700 13px Arial'; ctx.fillText(team.name, 24, y + 28);
-      ctx.textAlign = 'right'; ctx.font = '800 14px Arial'; ctx.fillText((scores[team.id] ?? 3).toFixed(1), ratingsWidth - 24, y + 28);
+      ctx.fillStyle = '#211529'; ctx.font = '700 13px Arial'; ctx.fillText(ratingTeam.name, 24, y + 28);
+      ctx.textAlign = 'right'; ctx.font = '800 14px Arial'; ctx.fillText((scores[ratingTeam.id] ?? 3).toFixed(1), ratingsWidth - 24, y + 28);
       ctx.textAlign = 'left'; ctx.font = '800 13px Arial'; ctx.fillText(`${team.short_name}  ${team.name}`, ratingsWidth + 14, y + 28);
       byGw.forEach(({ games }, gwIndex) => {
         const x = ratingsWidth + teamWidth + gwIndex * gwWidth;
