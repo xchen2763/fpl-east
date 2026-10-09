@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Custom FDR',
+  title: 'Custom Fixture Difficulty Rating | FPL East',
   description: 'Build a personal Fantasy Premier League fixture difficulty table from your own team ratings.',
 };
 
