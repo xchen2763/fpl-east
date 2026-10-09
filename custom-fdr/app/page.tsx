@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 
-type Team = { id: number; name: string; short_name: string };
+type Team = { id: number; name: string; short_name: string; code: number };
 type Event = {
   id: number;
   name: string;
@@ -74,6 +74,19 @@ async function loadJson<T>(remote: string, fallback: string): Promise<T> {
     if (!response.ok) throw new Error('Fixture data unavailable');
     return await response.json();
   }
+}
+
+function crestPath(team: Team) {
+  return `/crests/${team.code}.png`;
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement | null>((resolve) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => resolve(null);
+    image.src = src;
+  });
 }
 
 function getDefaultStartGw(events: Event[], now = Date.now()) {
@@ -192,7 +205,11 @@ export default function Home() {
     setDirty(true);
   }
 
-  function saveImage() {
+  async function saveImage() {
+    const crestEntries = await Promise.all(
+      teams.map(async (team) => [team.id, await loadImage(crestPath(team))] as const),
+    );
+    const teamCrests = new Map(crestEntries);
     const ratingTeams = [...teams].sort((a, b) => {
       if (sortMode === 'az') return a.name.localeCompare(b.name);
       if (sortMode === 'za') return b.name.localeCompare(a.name);
@@ -234,7 +251,9 @@ export default function Home() {
       ctx.fillRect(ratingsWidth, y, teamWidth, rowHeight - 2);
       ctx.fillStyle = '#211529'; ctx.font = '700 13px Arial'; ctx.fillText(ratingTeam.name, 24, y + 28);
       ctx.textAlign = 'right'; ctx.font = '800 14px Arial'; ctx.fillText((scores[ratingTeam.id] ?? 3).toFixed(1), ratingsWidth - 24, y + 28);
-      ctx.textAlign = 'left'; ctx.font = '800 13px Arial'; ctx.fillText(`${team.short_name}  ${team.name}`, ratingsWidth + 14, y + 28);
+      const crest = teamCrests.get(team.id);
+      if (crest) ctx.drawImage(crest, ratingsWidth + 14, y + 7, 30, 30);
+      ctx.textAlign = 'left'; ctx.font = '800 13px Arial'; ctx.fillText(team.name, ratingsWidth + 54, y + 28);
       byGw.forEach(({ games }, gwIndex) => {
         const x = ratingsWidth + teamWidth + gwIndex * gwWidth;
         if (games.length === 0) {
@@ -292,7 +311,7 @@ export default function Home() {
             {status === 'loading' && <div className="grid min-h-96 place-items-center text-muted-foreground">Loading official fixtures…</div>}
             {status === 'error' && <div className="grid min-h-96 place-items-center text-[#e0004d]">Fixture data could not be loaded.</div>}
             {status === 'ready' && <div className="overflow-auto"><table className="w-full min-w-max border-separate border-spacing-0 text-sm"><thead><tr><th className="sticky left-0 top-0 z-30 min-w-40 border-b border-r bg-[#f5f3f7] px-4 py-3 text-left font-extrabold">Team</th>{visibleGws.map((event) => <th key={event.id} className="sticky top-0 z-20 min-w-40 border-b border-r bg-[#f5f3f7] px-3 py-3 text-center font-extrabold">GW{event.id}</th>)}</tr></thead><tbody>
-              {rows.map(({ team, byGw }) => <tr key={team.id}><th className="sticky left-0 z-10 border-b border-r bg-card px-4 py-2.5 text-left font-bold"><span className="mr-2 inline-grid size-8 place-items-center rounded-full bg-[#37003c] text-xs font-black text-white">{team.short_name}</span>{team.name}</th>{byGw.map(({ event, games }) => <td key={event.id} className="h-[52px] min-w-40 border-b border-r p-0 text-center font-bold">{games.length === 0 ? <div className="grid h-full min-h-[52px] place-items-center bg-[#e7e7e7] text-lg text-[#4a4650]" title="Blank Gameweek">-</div> : <div className="flex h-full min-h-[52px] flex-col">{games.map((game) => { const background = fdrColor(game.fdr); return <div key={game.fixture.id} className="grid min-h-[26px] flex-1 place-items-center border-b border-white/80 px-2 last:border-b-0" style={{ backgroundColor: background, color: readableText(background) }}>{game.opponent?.short_name} ({game.isHome ? 'H' : 'A'}) {game.fdr.toFixed(1)}</div>; })}</div>}</td>)}</tr>)}
+              {rows.map(({ team, byGw }) => <tr key={team.id}><th className="sticky left-0 z-10 border-b border-r bg-card px-4 py-2.5 text-left font-bold"><span className="inline-flex items-center gap-3"><img src={crestPath(team)} alt={`${team.name} crest`} className="size-8 object-contain" />{team.name}</span></th>{byGw.map(({ event, games }) => <td key={event.id} className="h-[52px] min-w-40 border-b border-r p-0 text-center font-bold">{games.length === 0 ? <div className="grid h-full min-h-[52px] place-items-center bg-[#e7e7e7] text-lg text-[#4a4650]" title="Blank Gameweek">-</div> : <div className="flex h-full min-h-[52px] flex-col">{games.map((game) => { const background = fdrColor(game.fdr); return <div key={game.fixture.id} className="grid min-h-[26px] flex-1 place-items-center border-b border-white/80 px-2 last:border-b-0" style={{ backgroundColor: background, color: readableText(background) }}>{game.opponent?.short_name} ({game.isHome ? 'H' : 'A'}) {game.fdr.toFixed(1)}</div>; })}</div>}</td>)}</tr>)}
             </tbody></table></div>}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground"><span className="mr-1">Easy</span>{FDR_COLORS.map((color, index) => <span key={color} className="grid size-8 place-items-center rounded-md" style={{ backgroundColor: color, color: readableText(color) }}>{index + 1}</span>)}<span className="ml-1">Hard</span></div>
