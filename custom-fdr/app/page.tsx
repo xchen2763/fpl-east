@@ -7,7 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 
 type Team = { id: number; name: string; short_name: string };
-type Event = { id: number; name: string; is_current: boolean; is_next: boolean; finished: boolean };
+type Event = {
+  id: number;
+  name: string;
+  deadline_time: string | null;
+  is_current: boolean;
+  is_next: boolean;
+  finished: boolean;
+};
 type Fixture = { id: number; event: number | null; team_h: number; team_a: number };
 type SortMode = 'az' | 'za' | 'easy' | 'hard';
 type ModelContext = {
@@ -68,6 +75,20 @@ async function loadJson<T>(remote: string, fallback: string): Promise<T> {
   }
 }
 
+function getDefaultStartGw(events: Event[], now = Date.now()) {
+  const nextDeadline = events
+    .map((event) => ({ event, deadline: Date.parse(event.deadline_time ?? '') }))
+    .filter(({ deadline }) => Number.isFinite(deadline) && deadline > now)
+    .sort((a, b) => a.deadline - b.deadline)[0]?.event;
+
+  return nextDeadline?.id
+    ?? events.find((event) => event.is_next)?.id
+    ?? events.find((event) => !event.finished)?.id
+    ?? events.find((event) => event.is_current)?.id
+    ?? events.at(-1)?.id
+    ?? 1;
+}
+
 export default function Home() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -87,10 +108,7 @@ export default function Home() {
     ]).then(([bootstrap, fixtureData]) => {
       const ordered = [...bootstrap.teams].sort((a, b) => a.name.localeCompare(b.name));
       const defaults = Object.fromEntries(ordered.map((team) => [team.id, 3]));
-      const next = bootstrap.events.find((event) => event.is_next)?.id
-        ?? bootstrap.events.find((event) => !event.finished)?.id
-        ?? bootstrap.events.find((event) => event.is_current)?.id
-        ?? 1;
+      const next = getDefaultStartGw(bootstrap.events);
       setTeams(ordered); setEvents(bootstrap.events); setFixtures(fixtureData);
       setDraftScores(defaults); setScores(defaults); setStartGw(next); setStatus('ready');
     }).catch(() => setStatus('error'));
