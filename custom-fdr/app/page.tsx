@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Download, RefreshCcw, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 
@@ -314,7 +315,44 @@ export default function Home() {
               {rows.map(({ team, byGw }) => <tr key={team.id}><th className="sticky left-0 z-10 border-b border-r bg-card px-4 py-2.5 text-left font-bold"><span className="inline-flex items-center gap-3"><img src={crestPath(team)} alt={`${team.name} crest`} className="size-8 object-contain" />{team.name}</span></th>{byGw.map(({ event, games }) => <td key={event.id} className="h-[52px] min-w-40 border-b border-r p-0 text-center font-bold">{games.length === 0 ? <div className="grid h-full min-h-[52px] place-items-center bg-[#e7e7e7] text-lg text-[#4a4650]" title="Blank Gameweek">-</div> : <div className="flex h-full min-h-[52px] flex-col">{games.map((game) => { const background = fdrColor(game.fdr); return <div key={game.fixture.id} className="grid min-h-[26px] flex-1 place-items-center border-b border-white/80 px-2 last:border-b-0" style={{ backgroundColor: background, color: readableText(background) }}>{game.opponent?.short_name} ({game.isHome ? 'H' : 'A'}) {game.fdr.toFixed(1)}</div>; })}</div>}</td>)}</tr>)}
             </tbody></table></div>}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground"><span className="mr-1">Easy</span>{FDR_COLORS.map((color, index) => <span key={color} className="grid size-8 place-items-center rounded-md" style={{ backgroundColor: color, color: readableText(color) }}>{index + 1}</span>)}<span className="ml-1">Hard</span></div>
+          <div className="mt-4 flex flex-col gap-3 text-xs text-muted-foreground xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex flex-wrap items-center gap-2 font-semibold"><span className="mr-1">Easy</span>{FDR_COLORS.map((color, index) => <span key={color} className="grid size-8 place-items-center rounded-md" style={{ backgroundColor: color, color: readableText(color) }}>{index + 1}</span>)}<span className="ml-1">Hard</span></div>
+            <div className="flex max-w-2xl flex-col items-start gap-1 xl:items-end xl:text-right">
+              <Dialog>
+                <DialogTrigger className="font-semibold text-foreground underline decoration-foreground/35 underline-offset-4 transition-colors hover:text-[#37003c]">Privacy Policy</DialogTrigger>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-extrabold">Privacy Policy</DialogTitle>
+                    <DialogDescription>Last updated: 9 October 2026</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 leading-relaxed text-muted-foreground">
+                    <p>FPLEast respects your privacy. This site does not require an account and FPLEast does not collect, store, sell, or share the team ratings you enter.</p>
+                    <section className="space-y-1">
+                      <h3 className="font-bold text-foreground">Team ratings and downloads</h3>
+                      <p>Your ratings are processed in your browser and are not uploaded to FPLEast. Any FDR image you save is also generated locally in your browser and downloaded directly to your device.</p>
+                    </section>
+                    <section className="space-y-1">
+                      <h3 className="font-bold text-foreground">Fixture data</h3>
+                      <p>This site requests team and fixture data from the Fantasy Premier League API. When that request is made, the data provider may receive basic technical information such as your IP address and browser details under its own privacy practices. If the live data is unavailable, the site uses a bundled fallback copy.</p>
+                    </section>
+                    <section className="space-y-1">
+                      <h3 className="font-bold text-foreground">Hosting and technical logs</h3>
+                      <p>The hosting provider may process limited technical data, such as IP addresses, browser information, and request logs, to deliver, secure, and maintain the site.</p>
+                    </section>
+                    <section className="space-y-1">
+                      <h3 className="font-bold text-foreground">Cookies and analytics</h3>
+                      <p>FPLEast does not currently use advertising cookies, analytics cookies, or tracking tools. The hosting provider may use technologies that are strictly necessary to operate and secure the service.</p>
+                    </section>
+                    <section className="space-y-1">
+                      <h3 className="font-bold text-foreground">Changes to this policy</h3>
+                      <p>This policy may be updated if the site adds new features or changes how data is handled. The latest version will always be available through this Privacy Policy link.</p>
+                    </section>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              <p>This site is not affiliated with or endorsed by Premier League or Fantasy Premier League.</p>
+            </div>
+          </div>
         </section>
       </div>
     </main>
