@@ -29,6 +29,7 @@ type ModelContext = {
 };
 
 const HOME_ADVANTAGE = 0.5;
+const MAX_GAMEWEEKS = 8;
 const FDR_COLORS = ['#006b3c', '#00ff87', '#e7e7e7', '#ff1751', '#80072d'];
 const SORT_LABELS: Record<SortMode, string> = {
   az: 'Team A–Z',
@@ -283,7 +284,7 @@ export default function Home() {
         <section className="min-w-0">
           <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-4 shadow-sm">
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Start</span><Select value={String(startGw)} onValueChange={(value) => setStartGw(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue>{`GW ${startGw}`}</SelectValue></SelectTrigger><SelectContent>{events.map((event) => <SelectItem key={event.id} value={String(event.id)}>GW {event.id}</SelectItem>)}</SelectContent></Select></label>
-            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Gameweeks</span><Select value={String(gwCount)} onValueChange={(value) => setGwCount(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: 10 }, (_, index) => index + 1).map((count) => <SelectItem key={count} value={String(count)}>{count}</SelectItem>)}</SelectContent></Select></label>
+            <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Gameweeks</span><Select value={String(gwCount)} onValueChange={(value) => setGwCount(Math.min(MAX_GAMEWEEKS, Math.max(1, Number(value))))}><SelectTrigger className="h-10 min-w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: MAX_GAMEWEEKS }, (_, index) => index + 1).map((count) => <SelectItem key={count} value={String(count)}>{count}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">Order</span><Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}><SelectTrigger className="h-10 min-w-48"><SelectValue>{SORT_LABELS[sortMode]}</SelectValue></SelectTrigger><SelectContent><SelectItem value="az">Team A–Z</SelectItem><SelectItem value="za">Team Z–A</SelectItem><SelectItem value="easy">Easiest first</SelectItem><SelectItem value="hard">Hardest first</SelectItem></SelectContent></Select></label>
             <Button variant="outline" className="ml-auto h-10" onClick={saveImage} disabled={status !== 'ready'}><Download data-icon="inline-start" />Save image</Button>
           </div>
