@@ -235,7 +235,7 @@ export default function Home() {
     ctx.fillStyle = '#f7f5f8'; ctx.fillRect(0, 0, logicalWidth, logicalHeight);
     ctx.fillStyle = '#10051f'; ctx.fillRect(0, 0, logicalWidth, 72);
     ctx.fillStyle = '#ffffff'; ctx.font = '900 27px Arial'; ctx.fillText('FPL Custom FDR', 24, 31);
-    ctx.fillStyle = '#00ff87'; ctx.font = '700 11px Arial'; ctx.fillText('Presented by FPL East', 24, 54);
+    ctx.fillStyle = '#00ff87'; ctx.font = '700 11px Arial'; ctx.fillText('Presented by FPLEast', 24, 54);
     ctx.textAlign = 'right'; ctx.fillStyle = '#ffffff'; ctx.font = '600 13px Arial';
     ctx.fillText(`GW${visibleGws[0]?.id ?? startGw}–GW${visibleGws.at(-1)?.id ?? startGw}`, logicalWidth - 24, 43);
     ctx.textAlign = 'left'; ctx.fillStyle = '#31283a'; ctx.font = '800 14px Arial';
@@ -280,7 +280,7 @@ export default function Home() {
     <main className="min-h-screen bg-background text-foreground">
       <header className="border-b border-white/10 bg-[#10051f] px-4 py-4 text-white sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-[1800px] items-center gap-4">
-          <div><h1 className="text-2xl font-black tracking-tight sm:text-3xl">FPL Custom FDR</h1><p className="mt-1 text-xs font-bold tracking-[0.12em] text-[#00ff87]">Presented by FPL East</p></div>
+          <div><h1 className="text-2xl font-black tracking-tight sm:text-3xl">FPL Custom FDR</h1><p className="mt-1 text-xs font-bold tracking-[0.12em] text-[#00ff87]">Presented by FPLEast</p></div>
         </div>
       </header>
       <div className="mx-auto grid max-w-[1800px] gap-5 p-4 sm:p-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:p-8">
