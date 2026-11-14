@@ -17,6 +17,10 @@ type Event = {
   finished: boolean;
 };
 type Fixture = { id: number; event: number | null; team_h: number; team_a: number };
+type RatingMode = 'overall' | 'attack' | 'defence';
+type Ratings = Record<RatingMode, number>;
+const MODES: RatingMode[] = ['overall', 'attack', 'defence'];
+const defaultRating = (): Ratings => ({ overall: 3, attack: 3, defence: 3 });
 type SortMode = 'az' | 'za' | 'easy' | 'hard';
 type Language = 'en' | 'zh';
 type ModelContext = {
@@ -61,6 +65,8 @@ const COPY = {
     subtitle: 'Presented by FPLEast',
     language: 'Language',
     teamRatings: 'Team ratings',
+    modes: { overall: 'Overall', attack: 'Attack', defence: 'Defence' },
+    expand: 'Enable attack / defense ratings',
     ratingHelp: 'Rate every team from 1.0 to 5.0. Higher rating indicates stronger team.',
     resetRatings: 'Reset all ratings to 3.0',
     ratingChanged: 'Ratings changed — generate to apply',
@@ -98,6 +104,8 @@ const COPY = {
     subtitle: 'FPLEast(想把自己放进冰箱)',
     language: '语言',
     teamRatings: '球队评分',
+    modes: { overall: '综合', attack: '进攻', defence: '防守' },
+    expand: '启用进攻 / 防守评分',
     ratingHelp: '请为每支球队评定 1.0 至 5.0 分。评分越高，表示球队越强。',
     resetRatings: '将所有球队评分重置为 3.0',
     ratingChanged: '评分已更改 — 点击生成后应用',
@@ -212,11 +220,13 @@ export default function CustomFdrPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [fixtures, setFixtures] = useState<Fixture[]>([]);
-  const [draftScores, setDraftScores] = useState<Record<number, number>>({});
-  const [scores, setScores] = useState<Record<number, number>>({});
+  const [draftScores, setDraftScores] = useState<Record<number, Ratings>>({});
+  const [scores, setScores] = useState<Record<number, Ratings>>({});
   const [startGw, setStartGw] = useState(1);
   const [gwCount, setGwCount] = useState(5);
   const [sortMode, setSortMode] = useState<SortMode>('az');
+  const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<RatingMode>('overall');
   const [dirty, setDirty] = useState(false);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const copy = COPY[language];
@@ -232,7 +242,7 @@ export default function CustomFdrPage() {
       loadJson<Fixture[]>('https://fantasy.premierleague.com/api/fixtures/', '/data/fixtures.json'),
     ]).then(([bootstrap, fixtureData]) => {
       const ordered = [...bootstrap.teams].sort((a, b) => a.name.localeCompare(b.name));
-      const defaults = Object.fromEntries(ordered.map((team) => [team.id, 3]));
+      const defaults = Object.fromEntries(ordered.map((team) => [team.id, defaultRating()]));
       const next = getDefaultStartGw(bootstrap.events);
       setTeams(ordered); setEvents(bootstrap.events); setFixtures(fixtureData);
       setDraftScores(defaults); setScores(defaults); setStartGw(next); setStatus('ready');
@@ -263,13 +273,13 @@ export default function CustomFdrPage() {
       execute(input) {
         const candidate = input as { ratings?: Record<string, number> };
         if (!candidate?.ratings || typeof candidate.ratings !== 'object') throw new Error('ratings is required');
-        const changes: Record<number, number> = {};
+        const changes: Record<number, Ratings> = {};
         for (const [code, value] of Object.entries(candidate.ratings)) {
           const team = teams.find((item) => item.short_name === code.toUpperCase());
           if (!team || typeof value !== 'number' || value < 1 || value > 5 || Math.round(value * 10) !== value * 10) {
             throw new Error(`Invalid rating for ${code}`);
           }
-          changes[team.id] = value;
+          changes[team.id] = { overall: value, attack: value, defence: value };
         }
         setDraftScores((current) => ({ ...current, ...changes }));
         setScores((current) => ({ ...current, ...changes }));
@@ -282,53 +292,53 @@ export default function CustomFdrPage() {
 
   const visibleGws = useMemo(() => events.filter((event) => event.id >= startGw).slice(0, gwCount), [events, startGw, gwCount]);
   const teamById = useMemo(() => new Map(teams.map((team) => [team.id, team])), [teams]);
-  const rows = useMemo(() => {
+  const rowsByMode = useMemo(() => Object.fromEntries(MODES.map((ratingMode) => {
     const mapped = teams.map((team) => {
       const byGw = visibleGws.map((event) => {
         const games = fixtures.filter((fixture) => fixture.event === event.id && (fixture.team_h === team.id || fixture.team_a === team.id)).map((fixture) => {
           const isHome = fixture.team_h === team.id;
           const opponentId = isHome ? fixture.team_a : fixture.team_h;
           const opponent = teamById.get(opponentId);
-          return { fixture, opponent, isHome, fdr: calculateFdr(scores[team.id] ?? 3, scores[opponentId] ?? 3, isHome) };
+          return { fixture, opponent, isHome, fdr: calculateFdr(scores[team.id]?.[ratingMode] ?? 3, scores[opponentId]?.[ratingMode === 'attack' ? 'defence' : ratingMode === 'defence' ? 'attack' : 'overall'] ?? 3, isHome) };
         });
         return { event, games };
       });
       const easeScore = byGw.flatMap((gw) => gw.games).reduce((sum, game) => sum + 6 - game.fdr, 0);
       return { team, byGw, easeScore };
     });
-    return mapped.sort((a, b) => {
+    return [ratingMode, mapped.sort((a, b) => {
       if (sortMode === 'az') return a.team.name.localeCompare(b.team.name);
       if (sortMode === 'za') return b.team.name.localeCompare(a.team.name);
       const difference = sortMode === 'easy' ? b.easeScore - a.easeScore : a.easeScore - b.easeScore;
       return difference || a.team.name.localeCompare(b.team.name);
-    });
-  }, [teams, visibleGws, fixtures, teamById, scores, sortMode]);
+    })];
+  })), [teams, visibleGws, fixtures, teamById, scores, sortMode]);
+  const rows = rowsByMode[mode];
 
-  function updateScore(teamId: number, value: number) {
+  function updateScore(teamId: number, value: number, ratingMode: RatingMode) {
     if (!Number.isFinite(value)) return;
     const normalizedValue = Math.round(Math.min(5, Math.max(1, value)) * 10) / 10;
-    setDraftScores((current) => ({ ...current, [teamId]: normalizedValue }));
+    setDraftScores((current) => {
+      const next = { ...(current[teamId] ?? defaultRating()), [ratingMode]: normalizedValue };
+      if (ratingMode === 'overall') next.attack = next.defence = normalizedValue;
+      else next.overall = Math.round((next.attack * 10 + next.defence * 10) / 2) / 10;
+      return { ...current, [teamId]: next };
+    });
     setDirty(true);
   }
   function generate() { setScores({ ...draftScores }); setDirty(false); }
   function reset() {
-    setDraftScores(Object.fromEntries(teams.map((team) => [team.id, 3])));
+    setDraftScores(Object.fromEntries(teams.map((team) => [team.id, defaultRating()])));
     setDirty(true);
   }
 
-  async function saveImage() {
+  async function saveImage(exportMode: RatingMode) {
+    const rows = rowsByMode[exportMode];
     const crestEntries = await Promise.all(
       teams.map(async (team) => [team.id, await loadImage(crestPath(team))] as const),
     );
     const teamCrests = new Map(crestEntries);
-    const ratingTeams = [...teams].sort((a, b) => {
-      if (sortMode === 'az') return a.name.localeCompare(b.name);
-      if (sortMode === 'za') return b.name.localeCompare(a.name);
-      const aScore = scores[a.id] ?? 3;
-      const bScore = scores[b.id] ?? 3;
-      const difference = sortMode === 'easy' ? bScore - aScore : aScore - bScore;
-      return difference || a.name.localeCompare(b.name);
-    });
+    const ratingTeams = rows.map(({ team }) => team);
     const scale = 2;
     const ratingsWidth = 340;
     const teamWidth = 170;
@@ -346,14 +356,14 @@ export default function CustomFdrPage() {
     ctx.fillStyle = '#f7f5f8'; ctx.fillRect(0, 0, logicalWidth, logicalHeight);
     ctx.fillStyle = '#10051f'; ctx.fillRect(0, 0, logicalWidth, 72);
     const canvasFont = language === 'zh' ? '"Microsoft YaHei", "Noto Sans SC", Arial, sans-serif' : 'Arial, sans-serif';
-    ctx.fillStyle = '#ffffff'; ctx.font = `900 ${language === 'zh' ? 24 : 27}px ${canvasFont}`; ctx.fillText(copy.title, 24, 31);
+    ctx.fillStyle = '#ffffff'; ctx.font = `900 ${language === 'zh' ? 24 : 27}px ${canvasFont}`; ctx.fillText(`${copy.title} · ${copy.modes[exportMode]}`, 24, 31);
     ctx.fillStyle = '#00ff87'; ctx.font = `700 11px ${canvasFont}`; ctx.fillText(copy.subtitle, 24, 54);
     ctx.textAlign = 'right'; ctx.fillStyle = '#ffffff'; ctx.font = `600 13px ${canvasFont}`;
     const firstGw = visibleGws[0]?.id ?? startGw;
     const lastVisibleGw = visibleGws.at(-1)?.id ?? startGw;
     ctx.fillText(language === 'zh' ? `第${firstGw}–${lastVisibleGw}轮` : `GW${firstGw}–GW${lastVisibleGw}`, logicalWidth - 24, 43);
     ctx.textAlign = 'left'; ctx.fillStyle = '#31283a'; ctx.font = `800 14px ${canvasFont}`;
-    ctx.fillText(copy.teamRatingsImage, 24, 106); ctx.fillText(copy.teamImage, ratingsWidth + 14, 106);
+    ctx.fillText(`${copy.teamRatingsImage} · ${copy.modes[exportMode]}`, 24, 106); ctx.fillText(copy.teamImage, ratingsWidth + 14, 106);
     visibleGws.forEach((event, index) => {
       ctx.textAlign = 'center'; ctx.fillText(gameweekLabel(event.id, language), ratingsWidth + teamWidth + index * gwWidth + gwWidth / 2, 106);
     });
@@ -364,7 +374,7 @@ export default function CustomFdrPage() {
       ctx.fillRect(12, y, ratingsWidth - 24, rowHeight - 2);
       ctx.fillRect(ratingsWidth, y, teamWidth, rowHeight - 2);
       ctx.fillStyle = '#211529'; ctx.font = `700 13px ${canvasFont}`; ctx.fillText(teamName(ratingTeam, language), 24, y + 28);
-      ctx.textAlign = 'right'; ctx.font = `800 14px ${canvasFont}`; ctx.fillText((scores[ratingTeam.id] ?? 3).toFixed(1), ratingsWidth - 24, y + 28);
+      ctx.textAlign = 'right'; ctx.font = `800 14px ${canvasFont}`; ctx.fillText((scores[ratingTeam.id]?.[exportMode] ?? 3).toFixed(1), ratingsWidth - 24, y + 28);
       const crest = teamCrests.get(team.id);
       if (crest) ctx.drawImage(crest, ratingsWidth + 14, y + 7, 30, 30);
       ctx.textAlign = 'left'; ctx.font = `800 13px ${canvasFont}`; ctx.fillText(teamName(team, language), ratingsWidth + 54, y + 28);
@@ -389,7 +399,7 @@ export default function CustomFdrPage() {
     });
     const link = document.createElement('a');
     const lastGw = visibleGws.at(-1)?.id ?? startGw;
-    link.download = `custom-fdr-gw${String(startGw).padStart(2, '0')}-gw${String(lastGw).padStart(2, '0')}.png`;
+    link.download = `custom-fdr-${exportMode}-gw${String(startGw).padStart(2, '0')}-gw${String(lastGw).padStart(2, '0')}.png`;
     link.href = canvas.toDataURL('image/png'); link.click();
   }
 
@@ -407,17 +417,23 @@ export default function CustomFdrPage() {
           </label>
         </div>
       </header>
-      <div className="mx-auto grid max-w-[1800px] gap-5 p-4 sm:p-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:p-8">
+      <div className={`mx-auto grid max-w-[1800px] gap-5 p-4 sm:p-6 lg:p-8 ${expanded ? "xl:grid-cols-[660px_minmax(0,1fr)]" : "lg:grid-cols-[360px_minmax(0,1fr)]"}`}>
         <aside className="rounded-2xl border bg-card shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <div className="sticky top-0 z-10 border-b bg-card/95 p-5 backdrop-blur">
             <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-extrabold">{copy.teamRatings}</h2><p className="mt-1 text-sm text-muted-foreground">{copy.ratingHelp}</p></div><Button variant="ghost" size="icon" onClick={reset} aria-label={copy.resetRatings}><RefreshCcw /></Button></div>
           </div>
-          <div className="space-y-4 p-5">
-            {teams.map((team) => <div key={team.id} className="grid grid-cols-[108px_minmax(0,1fr)_42px] items-center gap-3">
-              <label htmlFor={`rating-${team.id}`} className="truncate text-sm font-semibold" title={teamName(team, language)}>{teamName(team, language)}</label>
-              <Slider id={`rating-${team.id}`} min={1} max={5} step={0.1} value={[draftScores[team.id] ?? 3]} onValueChange={(value) => updateScore(team.id, Number(Array.isArray(value) ? value[0] : value))} aria-label={language === 'zh' ? `${teamName(team, language)}评分` : `${team.name} rating`} />
-              <output className="rounded-md bg-secondary px-1.5 py-1 text-center font-mono text-sm font-bold">{(draftScores[team.id] ?? 3).toFixed(1)}</output>
-            </div>)}
+          <label className="flex items-center gap-2 px-5 pt-4 text-sm font-semibold"><input type="checkbox" checked={expanded} onChange={(event) => setExpanded(event.target.checked)} />{copy.expand}</label>
+          <div className="overflow-x-auto p-5">
+            <div className={expanded ? 'min-w-[590px] space-y-4' : 'space-y-4'}>
+              <div className="flex gap-3 text-xs font-bold"><span className="w-[108px] shrink-0">{copy.team}</span>{(expanded ? MODES : ['overall'] as RatingMode[]).map((kind) => <span className="flex-1" key={kind}>{copy.modes[kind]}</span>)}</div>
+              {teams.map((team) => <div key={team.id} className="flex items-center gap-3">
+                <span className="w-[108px] shrink-0 truncate text-sm font-semibold" title={teamName(team, language)}>{teamName(team, language)}</span>
+                {(expanded ? MODES : ['overall'] as RatingMode[]).map((kind) => <div key={kind} className="flex min-w-0 flex-1 items-center gap-2">
+                  <Slider min={1} max={5} step={0.1} value={[draftScores[team.id]?.[kind] ?? 3]} onValueChange={(value) => updateScore(team.id, Number(Array.isArray(value) ? value[0] : value), kind)} aria-label={`${teamName(team, language)} ${copy.modes[kind]}`} />
+                  <output className="rounded-md bg-secondary px-1.5 py-1 font-mono text-sm font-bold">{(draftScores[team.id]?.[kind] ?? 3).toFixed(1)}</output>
+                </div>)}
+              </div>)}
+            </div>
           </div>
           <div className="sticky bottom-0 border-t bg-card/95 p-4 backdrop-blur">
             {dirty && <p className="mb-2 text-center text-xs font-semibold text-[#e0004d]">{copy.ratingChanged}</p>}
@@ -425,11 +441,14 @@ export default function CustomFdrPage() {
           </div>
         </aside>
         <section className="min-w-0">
-          <div className="mb-4 flex flex-wrap items-end gap-3 rounded-2xl border bg-card p-4 shadow-sm">
+          <div className="mb-4 flex flex-wrap items-center gap-4 rounded-2xl border bg-card p-4 shadow-sm">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-3">
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">{copy.start}</span><Select value={String(startGw)} onValueChange={(value) => setStartGw(Number(value))}><SelectTrigger className="h-10 min-w-28"><SelectValue>{gameweekLabel(startGw, language, true)}</SelectValue></SelectTrigger><SelectContent>{events.map((event) => <SelectItem key={event.id} value={String(event.id)}>{gameweekLabel(event.id, language, true)}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">{copy.gameweeks}</span><Select value={String(gwCount)} onValueChange={(value) => setGwCount(Math.min(MAX_GAMEWEEKS, Math.max(1, Number(value))))}><SelectTrigger className="h-10 min-w-28"><SelectValue /></SelectTrigger><SelectContent>{Array.from({ length: MAX_GAMEWEEKS }, (_, index) => index + 1).map((count) => <SelectItem key={count} value={String(count)}>{count}</SelectItem>)}</SelectContent></Select></label>
             <label className="space-y-1.5"><span className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">{copy.order}</span><Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}><SelectTrigger className="h-10 min-w-48"><SelectValue>{copy.sort[sortMode]}</SelectValue></SelectTrigger><SelectContent><SelectItem value="az">{copy.sort.az}</SelectItem><SelectItem value="za">{copy.sort.za}</SelectItem><SelectItem value="easy">{copy.sort.easy}</SelectItem><SelectItem value="hard">{copy.sort.hard}</SelectItem></SelectContent></Select></label>
-            <Button variant="outline" className="ml-auto h-10" onClick={saveImage} disabled={status !== 'ready'}><Download data-icon="inline-start" />{copy.saveImage}</Button>
+              <div className="flex w-full flex-wrap gap-2" aria-label="FDR">{MODES.map((kind) => <Button key={kind} variant={mode === kind ? "default" : "outline"} aria-pressed={mode === kind} onClick={() => setMode(kind)}>{copy.modes[kind]} FDR</Button>)}</div>
+            </div>
+            <div className="ml-auto flex shrink-0 flex-col gap-1.5">{MODES.map((kind) => <Button key={kind} variant="outline" className="h-8 py-1 text-xs" onClick={() => void saveImage(kind)} disabled={status !== 'ready'}><Download data-icon="inline-start" />{copy.saveImage} · {copy.modes[kind]}</Button>)}</div>
           </div>
           <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
             {status === 'loading' && <div className="grid min-h-96 place-items-center text-muted-foreground">{copy.loading}</div>}
