@@ -338,7 +338,14 @@ export default function CustomFdrPage() {
       teams.map(async (team) => [team.id, await loadImage(crestPath(team))] as const),
     );
     const teamCrests = new Map(crestEntries);
-    const ratingTeams = rows.map(({ team }) => team);
+    const ratingTeams = [...teams].sort((a, b) => {
+      if (sortMode === 'az') return a.name.localeCompare(b.name);
+      if (sortMode === 'za') return b.name.localeCompare(a.name);
+      const aScore = scores[a.id]?.[exportMode] ?? 3;
+      const bScore = scores[b.id]?.[exportMode] ?? 3;
+      const difference = sortMode === 'easy' ? bScore - aScore : aScore - bScore;
+      return difference || a.name.localeCompare(b.name);
+    });
     const scale = 2;
     const ratingsWidth = 340;
     const teamWidth = 170;

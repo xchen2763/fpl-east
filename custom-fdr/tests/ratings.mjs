@@ -6,6 +6,7 @@ const source = readFileSync(new URL('../app/custom-fdr/page.tsx', import.meta.ur
 const calculate = source.slice(source.indexOf('function calculateFdr'), source.indexOf('async function loadJson'));
 const update = source.slice(source.indexOf('  function updateScore'), source.indexOf('  function generate'));
 const rows = source.slice(source.indexOf('  const rowsByMode'), source.indexOf('  function updateScore'));
+const exportSort = source.slice(source.indexOf('    const ratingTeams ='), source.indexOf('    const scale ='));
 const context = vm.createContext({ assert });
 const script = `
 const HOME_ADVANTAGE = 0.5;
@@ -38,6 +39,16 @@ assert.equal(rowsByMode.defence.find(r=>r.team.id===1).byGw[0].games[0].fdr,2.8)
 assert.equal(rowsByMode.overall[0].byGw[1].games.length,0);
 assert.equal(rowsByMode.attack[0].team.id,sortMode==='za'||sortMode==='hard'?2:1, 'attack '+sortMode);
 assert.equal(rowsByMode.defence[0].team.id,sortMode==='za'||sortMode==='hard'?2:1, 'defence '+sortMode);
+for (const exportMode of MODES) {
+${exportSort}
+const expected = sortMode === 'az' ? 1 : sortMode === 'za' ? 2
+  : exportMode === 'overall' ? 1
+  : exportMode === 'attack' ? (sortMode === 'easy' ? 1 : 2)
+  : (sortMode === 'easy' ? 2 : 1);
+assert.equal(ratingTeams[0].id, expected, 'image ratings '+exportMode+' '+sortMode);
+assert.equal(teams[0].id, 1, 'export must not mutate team order');
+}
+
 }
 `;
 vm.runInContext(ts.transpile(script, { target: ts.ScriptTarget.ES2022 }), context);

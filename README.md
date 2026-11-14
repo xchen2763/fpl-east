@@ -40,7 +40,7 @@ Each view uses the same formula and home-advantage factor, with these inputs:
 | Attack | Attack | Defence |
 | Defence | Defence | Attack |
 
-Fixture sorting uses `Ease Score = sum(6 - FDR)`. This naturally rewards Double Gameweeks and gives Blank Gameweeks no contribution. Each view calculates its own Ease Scores, so difficulty-based ordering can differ between views. Each PNG uses its selected FDR type and follows the chosen sort order.
+Fixture sorting uses `Ease Score = sum(6 - FDR)`. This naturally rewards Double Gameweeks and gives Blank Gameweeks no contribution. Each view calculates its own Ease Scores, so difficulty-based ordering can differ between views. Each PNG uses its selected FDR type and follows the chosen sort order. Its team ratings panel sorts independently of the fixture table: A–Z/Z–A uses English team names, Easiest first uses highest team rating first, and Hardest first uses lowest team rating first. Numeric sorting uses the exported rating type, with alphabetical tie-breaking.
 
 ## Local development
 
